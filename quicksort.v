@@ -39,14 +39,6 @@ Program Fixpoint qsort l {measure (length l) l}:=
 Next Obligation. apply tl_filter. Qed.
 Next Obligation. apply tl_filter. Qed.
 
-Lemma cons_sorted : forall A (R : A -> A -> Prop) (hd : A) (tl : list A),
-                      (forall b, In b tl -> R hd b) ->
-                      LocallySorted R tl -> LocallySorted R (hd :: tl).
-Proof.
-  intros. induction tl. constructor. constructor. assumption.
-  apply H. constructor. reflexivity.
-Qed.
-
 Lemma app_lt_sorted : forall A R pivot (l1 l2 : list A),
                         LocallySorted R l1 -> LocallySorted R l2 ->
                         (forall a, In a l1 -> R a pivot) ->
@@ -70,25 +62,6 @@ Proof.
   assumption. assumption.
 Qed.
 
-Lemma app_lt_sorted_old : forall A R pivot (l1 l2 : list A),
-                        LocallySorted R l1 -> LocallySorted R l2 ->
-                        (forall a l1, In a l1 -> R a pivot) ->
-                        (forall b l2, In b l2 -> R pivot b) ->
-                        LocallySorted R (List.app l1 (pivot :: l2)).
-Proof.
-  intros. generalize dependent l2. induction l1; intros.
-  simpl.
-  inversion H0. constructor. apply LSorted_consn. constructor.
-  apply H2 with (l2 := l2). rewrite <- H3. constructor. reflexivity.
-  apply LSorted_consn. rewrite <- H5 in H0. apply H0. apply H2 with (l2 := l2).
-  rewrite <- H5. constructor. reflexivity.
-  inversion H. simpl. constructor. rewrite <- H5 in IHl1. simpl in IHl1.
-  apply IHl1. constructor. assumption. apply H1 with (l1 := (a :: l1)).
-  constructor. reflexivity.
-  simpl. constructor. rewrite <- H4 in IHl1. simpl in IHl1. apply IHl1.
-  assumption. assumption. assumption.
-Qed.
-
 Lemma lt_let_true : forall n m, n <=? m = true \/ m <? n = true.
 Proof.
   intros. pose Nat.le_gt_cases. assert (H := o n m).
@@ -96,33 +69,34 @@ Proof.
   right. apply Nat.ltb_lt. assumption.
 Qed.
 
-Program Fixpoint in_filters n pivot l {measure (length l)} : In n l ->
-                                In n (List.filter (fun x => Nat.ltb x pivot) l)
-                                \/ In n (List.filter (fun x => Nat.leb pivot x) l) :=
-  match l with
-    | [] => _
-    | hd :: tl => _
-  end.
-Next Obligation. inversion H. assert (pivot <=? hd = true \/ hd <? pivot = true).
-                 apply lt_let_true. inversion H1. right. rewrite H2.
-                 rewrite H0. constructor. reflexivity.
-                 rewrite H2. left. constructor. assumption.
-                 
+Lemma filter_In_strong : forall A (m : A) (l : list A) (f : A -> bool), In m (filter f l) -> In m l.
+Proof.
+  intros. generalize dependent m. induction l; intros. inversion H.
+  simpl. simpl in H. destruct (f a). destruct H. auto. auto.
+  auto.
+Qed.
 
-  
-Program Fixpoint qsort_permutation m l {measure (length l)}: In m (qsort l) -> In m l :=
-  match l with
-    | [] => _
-    | hd :: tl => _
-  end.
-Next Obligation. assert ((qsort (hd :: tl)) =
-                         List.app (qsort (List.filter (fun x => Nat.ltb x hd) tl))
-                                  (hd :: (qsort (List.filter (fun x => Nat.leb hd x) tl)))).
-                 unfold_sub qsort (qsort (hd :: tl)). reflexivity.
-                 rewrite H0 in H. apply in_app_or in H. inversion H.
-                 apply qsort_permutation in H1.
-  
-  
+Lemma qsort_permutation : forall m l, In m (qsort l) -> In m l.
+Proof.
+  intros. remember (length l) as n. assert (length l <= n). subst. constructor.
+  clear Heqn. generalize dependent l. generalize dependent m.
+  induction n; intros. destruct l. auto. inversion H0.
+  destruct l. inversion H.
+  assert ((qsort (n0 :: l)) =
+          List.app (qsort (List.filter (fun x => Nat.ltb x n0) l))
+                   (n0 :: (qsort (List.filter (fun x => Nat.leb n0 x) l)))).
+  unfold_sub qsort (qsort (n0 :: l)). reflexivity.
+  rewrite H1 in H. apply in_app_or in H. inversion H. simpl. right.
+  assert (In m (filter (fun x : nat => x <? n0) l)). apply IHn. assumption.
+  inversion H0. apply filter_length.
+  rewrite <- H4. simpl. constructor. apply filter_length.
+  apply filter_In_strong in H3. assumption.
+  inversion H2. rewrite H3. constructor. reflexivity.
+  simpl. right. assert (In m (filter (fun x : nat => n0 <=? x) l)).
+  apply IHn. assumption. simpl in H0. apply le_S_n in H0.
+  apply le_trans with (m := (length l)). apply filter_length. assumption.
+  apply filter_In_strong in H4. assumption.
+Qed.
   
 
 Hint Constructors LocallySorted.
