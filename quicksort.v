@@ -70,28 +70,6 @@ Proof.
   auto.
 Qed.
 
-Lemma qsort_member1 : forall m l, In m (qsort l) -> In m l.
-Proof.
-  intros. remember (length l) as n. assert (length l <= n). subst. constructor.
-  clear Heqn. generalize dependent l. generalize dependent m.
-  induction n; intros. destruct l. auto. inversion H0.
-  destruct l. inversion H.
-  assert ((qsort (n0 :: l)) =
-          List.app (qsort (List.filter (fun x => Nat.ltb x n0) l))
-                   (n0 :: (qsort (List.filter (fun x => Nat.leb n0 x) l)))).
-  unfold_sub qsort (qsort (n0 :: l)). reflexivity.
-  rewrite H1 in H. apply in_app_or in H. inversion H. simpl. right.
-  assert (In m (filter (fun x : nat => x <? n0) l)). apply IHn. assumption.
-  inversion H0. apply filter_length.
-  rewrite <- H4. simpl. constructor. apply filter_length.
-  apply filter_In_strong in H3. assumption.
-  inversion H2. rewrite H3. constructor. reflexivity.
-  simpl. right. assert (In m (filter (fun x : nat => n0 <=? x) l)).
-  apply IHn. assumption. simpl in H0. apply le_S_n in H0.
-  apply le_trans with (m := (length l)). apply filter_length. assumption.
-  apply filter_In_strong in H4. assumption.
-Qed.
-
 Lemma ltb_leb : forall n m, (n <=? m = true /\ m <? n = false)
                        \/ (n <=? m = false /\ m <? n = true).
 Proof.
@@ -119,6 +97,46 @@ Proof.
   simpl in H0. apply le_S_n in H0. apply H0. inversion H3. rewrite H4. rewrite H5.
   simpl. apply or_assoc. right. apply IHn. assumption. simpl in H0. apply le_S_n in H0.
   assumption.
+Qed.
+
+Lemma filters_permutation : forall y l,
+                              Permutation l
+                                          ((filter (fun x : nat => x <? y) l)
+                                             ++  (filter (fun x : nat => y <=? x) l)).
+Proof.
+  intros. remember (length l) as n. assert (length l <= n). subst. constructor.
+  clear Heqn. generalize dependent l. generalize dependent y.
+  induction n; intros; destruct l. auto. inversion H. auto. simpl.
+  assert ((y <=? n0) = true /\ (n0 <? y) = false \/
+                              (y <=? n0) = false /\ (n0 <? y) = true).
+  apply ltb_leb. inversion H0. inversion H1. rewrite H2. rewrite H3.
+  apply Permutation_cons_app. apply IHn. apply le_S_n. simpl in H. assumption.
+  inversion H1. rewrite H2. rewrite H3. simpl. constructor. apply IHn.
+  apply le_S_n. simpl in H. assumption.
+Qed.
+
+Theorem qsort_permutation : forall l, Permutation l (qsort l). 
+Proof.
+  intros. intros. remember (length l) as n. assert (length l <= n). subst. constructor.
+  clear Heqn. generalize dependent l. induction n; intros.
+  destruct l. constructor. inversion H. destruct l. constructor.
+  unfold_sub qsort (qsort (n0 :: l)). apply Permutation_cons_app.
+  assert (Permutation l ((filter (fun x : nat => x <? n0) l) ++
+                                                        (filter (fun x : nat => n0 <=? x) l))).
+  apply filters_permutation.
+  apply Permutation_trans with (l' := (filter (fun x : nat => x <? n0) l ++
+                                              filter (fun x : nat => n0 <=? x) l)).
+  assumption. simpl in H. apply le_S_n in H.
+  apply Permutation_app; apply IHn; 
+  apply le_trans with (m := length l). apply filter_length. assumption.
+  apply filter_length. assumption.
+Qed.
+
+Lemma qsort_member : forall m l, In m (qsort l) <-> In m l.
+Proof.
+  intros. assert (Permutation (qsort l) l). apply Permutation_sym. apply qsort_permutation.
+  split; intros. apply Permutation_in with (l := (qsort l)). assumption. assumption.
+  apply Permutation_sym in H. apply Permutation_in with (l := l). assumption. assumption.
 Qed.
 
 Lemma qsort_member2 : forall m l, In m l -> In m (qsort l).
@@ -153,42 +171,8 @@ Proof.
   apply IHn. apply le_trans with (length l). apply filter_length. assumption.
   apply app_lt_sorted. assumption. assumption.
   intros. apply Nat.leb_le. 
-  apply qsort_member1 in H2. apply filter_In in H2.
+  apply -> qsort_member in H2. apply filter_In in H2.
   inversion H2. apply Nat.ltb_lt in H4. apply leb_correct. auto with arith.
-  intros. apply qsort_member1 in H2. apply filter_In in H2. inversion H2.
+  intros. apply -> qsort_member in H2. apply filter_In in H2. inversion H2.
   apply leb_complete. assumption.
-Qed.
-
-
-Lemma filters_permutation : forall y l,
-                              Permutation l
-                                          ((filter (fun x : nat => x <? y) l)
-                                             ++  (filter (fun x : nat => y <=? x) l)).
-Proof.
-  intros. remember (length l) as n. assert (length l <= n). subst. constructor.
-  clear Heqn. generalize dependent l. generalize dependent y.
-  induction n; intros; destruct l. auto. inversion H. auto. simpl.
-  assert ((y <=? n0) = true /\ (n0 <? y) = false \/
-                              (y <=? n0) = false /\ (n0 <? y) = true).
-  apply ltb_leb. inversion H0. inversion H1. rewrite H2. rewrite H3.
-  apply Permutation_cons_app. apply IHn. apply le_S_n. simpl in H. assumption.
-  inversion H1. rewrite H2. rewrite H3. simpl. constructor. apply IHn.
-  apply le_S_n. simpl in H. assumption.
-Qed.
-
-Theorem qsort_permutation : forall l, Permutation l (qsort l). 
-Proof.
-  intros. intros. remember (length l) as n. assert (length l <= n). subst. constructor.
-  clear Heqn. generalize dependent l. induction n; intros.
-  destruct l. constructor. inversion H. destruct l. constructor.
-  unfold_sub qsort (qsort (n0 :: l)). apply Permutation_cons_app.
-  assert (Permutation l ((filter (fun x : nat => x <? n0) l) ++
-                                                        (filter (fun x : nat => n0 <=? x) l))).
-  apply filters_permutation.
-  apply Permutation_trans with (l' := (filter (fun x : nat => x <? n0) l ++
-                                              filter (fun x : nat => n0 <=? x) l)).
-  assumption. simpl in H. apply le_S_n in H.
-  apply Permutation_app; apply IHn; 
-  apply le_trans with (m := length l). apply filter_length. assumption.
-  apply filter_length. assumption.
 Qed.
