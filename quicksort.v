@@ -62,13 +62,6 @@ Proof.
   assumption. assumption.
 Qed.
 
-Lemma lt_let_true : forall n m, n <=? m = true \/ m <? n = true.
-Proof.
-  intros. pose Nat.le_gt_cases. assert (H := o n m).
-  inversion H. left. apply leb_correct. assumption.
-  right. apply Nat.ltb_lt. assumption.
-Qed.
-
 Lemma filter_In_strong : forall A (m : A) (l : list A) (f : A -> bool), In m (filter f l) -> In m l.
 Proof.
   intros. generalize dependent m. induction l; intros. inversion H.
@@ -76,7 +69,7 @@ Proof.
   auto.
 Qed.
 
-Lemma qsort_permutation : forall m l, In m (qsort l) -> In m l.
+Lemma qsort_permutation1 : forall m l, In m (qsort l) -> In m l.
 Proof.
   intros. remember (length l) as n. assert (length l <= n). subst. constructor.
   clear Heqn. generalize dependent l. generalize dependent m.
@@ -97,10 +90,57 @@ Proof.
   apply le_trans with (m := (length l)). apply filter_length. assumption.
   apply filter_In_strong in H4. assumption.
 Qed.
+
+Lemma ltb_leb : forall n m, (n <=? m = true /\ m <? n = false)
+                       \/ (n <=? m = false /\ m <? n = true).
+Proof.
+  intros. pose Nat.leb_antisym. assert ((n <=? m) = negb (m <? n)).
+  apply e. destruct (n <=? m). left. split. reflexivity.
+  apply Bool.negb_true_iff. auto. right. split. reflexivity.
+  apply Bool.negb_false_iff. auto.
+Qed.
+
+Lemma in_filters : forall m n0 l, In m l -> In m (filter (fun x : nat => x <? n0) l)
+                                      \/ In m (filter (fun x : nat => n0 <=? x) l).
+Proof.
+  intros. remember (length l) as n. assert (length l <= n). subst. constructor.
+  clear Heqn. generalize dependent l. generalize dependent m.
+  induction n; intros. destruct l. inversion H. inversion H. inversion H0.
+  inversion H0. destruct l. inversion H. simpl. inversion H.
+  assert ((n0 <=? n1 = true /\ n1 <? n0 = false)
+          \/ (n0 <=? n1 = false /\ n1 <? n0 = true)). apply ltb_leb.
+  destruct H2; inversion H2. rewrite H3. rewrite H4. right. rewrite H1.
+  constructor. reflexivity. rewrite H3. rewrite H4. left. constructor. assumption.
+  assert ((n0 <=? n1 = true /\ n1 <? n0 = false)
+          \/ (n0 <=? n1 = false /\ n1 <? n0 = true)). apply ltb_leb.
+  inversion H2. inversion H3. rewrite H4. rewrite H5. simpl. apply or_comm.
+  apply or_assoc. right. apply or_comm. apply IHn. assumption.
+  simpl in H0. apply le_S_n in H0. apply H0. inversion H3. rewrite H4. rewrite H5.
+  simpl. apply or_assoc. right. apply IHn. assumption. simpl in H0. apply le_S_n in H0.
+  assumption.
+Qed.
+
+Lemma qsort_permutation2 : forall m l, In m l -> In m (qsort l).
+Proof.
+  intros. remember (length l) as n. assert (length l <= n). subst. constructor.
+  clear Heqn. generalize dependent l. generalize dependent m.
+  induction n; intros. destruct l. inversion H. inversion H0.
+  destruct l. inversion H. inversion H. unfold_sub qsort (qsort (n0 :: l)).
+  apply in_or_app. right. rewrite H1. constructor. reflexivity.
+  unfold_sub qsort (qsort (n0 :: l)). apply in_or_app. assert (In m l). assumption.
+  apply in_filters with (n0 := n0) in H1. inversion H1. left. apply IHn. assumption.
+  simpl in H0. apply le_S_n in H0. apply le_trans with (length l). apply filter_length.
+  assumption. right. simpl. right. apply IHn. assumption.
+  simpl in H0. apply le_S_n in H0. apply le_trans with (length l). apply filter_length.
+  assumption.
+Qed.
+  
+  
+  
   
 
 Hint Constructors LocallySorted.
-Theorem qsort_correct : forall l, LocallySorted le (qsort l).
+Theorem qsort_sorted : forall l, LocallySorted le (qsort l).
 Proof.
   intros. remember (length l) as n. assert (length l <= n). subst. constructor.
   clear Heqn. generalize dependent l.
@@ -116,8 +156,8 @@ Proof.
   apply IHn. apply le_trans with (length l). apply filter_length. assumption.
   apply app_lt_sorted. assumption. assumption.
   intros. apply Nat.leb_le. 
-  apply qsort_permutation in H2. apply filter_In in H2.
+  apply qsort_permutation1 in H2. apply filter_In in H2.
   inversion H2. apply Nat.ltb_lt in H4. apply leb_correct. auto with arith.
-  intros. apply qsort_permutation in H2. apply filter_In in H2. inversion H2.
+  intros. apply qsort_permutation1 in H2. apply filter_In in H2. inversion H2.
   apply leb_complete. assumption.
 Qed.
