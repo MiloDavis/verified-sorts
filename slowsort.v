@@ -4,6 +4,19 @@ Set Implicit Arguments.
 Require Import Coq.Program.Wf.
 Require Import Arith.
 
+Fixpoint div2 n :=
+  match n with
+    | O | 1 => 0
+    | S (S n) => S (div2 n)
+  end.
+
+Theorem div2_correct : forall n, div2 n = n / 2.
+Proof.
+  intros. induction n. compute. reflexivity.
+  simpl. 
+  
+                     
+
 Section Array.
   Definition array T := list T.
   Variable (A : Set).
@@ -33,26 +46,42 @@ Proof. auto. Qed.
 Example leb2 : leb 0 0 = true.
 Proof. auto. Qed.
 
-Lemma term_justification : forall i j, i <= j -> ~ ((j - i) <= 1) -> ((i + j) / 2) - i < i - j.
+Lemma div_gt : forall i j, (j - i) <=? 1 = false -> (i + j) / 2 >= 1.
 Proof.
-  intros. induction i. simpl. destruct j.  contradiction H0. auto.
-  simpl.
-  
+  admit.
+Admitted.
+
 
 Program Fixpoint slowsort_help (l : list nat) (i j : nat) {measure (j - i)} :=
-  if leb (j - i) 1 
+  if (j - i) <=? 1 
   then l
   else let m := (i + j) / 2 in
        let partially_sorted := slowsort_help (slowsort_help l i m) m j in
        let lm := nth (pred m) partially_sorted 0 in
        let lj := nth (pred j) partially_sorted 0 in
-       if Nat.ltb lj lm
+       if  lj <? lm
        then slowsort_help (set (set partially_sorted (pred m) lj) (pred j) lm)
                           i (pred j)
        else slowsort_help partially_sorted i (pred j).
-Next Obligation. 
-                 
+Next Obligation. admit. Admitted.
+Next Obligation. admit. Admitted.
+Next Obligation. admit. Admitted.
+Next Obligation. admit. Admitted.
   
 Definition slowsort l := slowsort_help l 0 (length l).
 
-Example sort_empty
+Example slowsort_test1 : slowsort [1;20;0; 3000; 10] = [0; 1; 10; 20; 3000].
+Proof. auto. Qed.
+
+Example slowsort_test2 : slowsort [] = [].
+Proof. auto. Qed.
+
+Example slowsort_test3 : slowsort [1] = [1].
+Proof. auto. Qed.
+
+Inductive max_list : list nat -> nat -> Prop :=
+| max_nil : max_list [] 0
+| max_cons : forall n hd l, max_list l n -> max_list (hd :: l) (max hd n).
+
+Theorem slowsort_help_correct : forall i j l, LocallySorted le (slowsort_help l i j)
+                                         /\ max_list (nth l (slowsort_help l i j) pred j) l.
