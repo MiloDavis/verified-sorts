@@ -1,19 +1,15 @@
 Require Import List.
 Import ListNotations.
 Set Implicit Arguments.
-Require Import Coq.Program.Wf.
 Require Import Arith.
 Require Import Coq.Sorting.Sorted.
 Require Import Coq.Sorting.Permutation.
 Require Import Coq.Program.Combinators.
 Require Import quicksort.
-Import WfExtensionality.
 
 Inductive bt :=
 | Leaf : bt
 | Node : nat -> bt -> bt -> bt.
-
-Check Node 100 Leaf Leaf.
 
 Inductive in_bt : nat -> bt -> Prop :=
 | Curnode : forall n1 n2 tl tr, n1 = n2 -> in_bt n1 (Node n2 tl tr)
@@ -207,8 +203,6 @@ Proof.
 Qed.
 
 
-
-
 Theorem treesort_permutation : forall l, Permutation l (treesort l).
 Proof.
   intros. induction l. auto.
@@ -219,4 +213,3 @@ Proof.
   apply Permutation_trans with (l' := (a :: marshall (insert_list l))).
   constructor. assumption. assumption.
 Qed.
-  
