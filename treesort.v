@@ -149,3 +149,74 @@ Proof.
   apply insert_list_bst.
 Qed.
 
+Fixpoint tree_size t :=
+  match t with
+  | Leaf => 0
+  | Node n tl tr => 1 + (tree_size tl) + (tree_size tr)
+  end.
+
+Lemma le_plus_l_elim : forall n m p, n + m <= p -> n <= p.
+Proof.
+  intros. induction m. rewrite plus_comm in H. simpl in H.
+  assumption.
+  apply IHm. rewrite plus_comm in H. inversion H.
+  rewrite plus_comm. simpl. auto. constructor.
+  rewrite plus_comm. apply le_Sn_le. simpl in H0.
+  assumption.
+Qed.
+  
+Lemma permutation_append : forall {A : Type} (l1 l2 l3 l4  : list A) a,
+    Permutation l1 l2 -> Permutation l3 l4 ->
+    Permutation (a :: (l1 ++ l3)) (l2 ++ (a :: l4)).
+Proof.
+  intros. apply Permutation_cons_app. apply Permutation_app.
+  assumption. assumption.
+Qed.
+
+Lemma insert_permutation : forall a t,
+    Permutation (a :: (marshall t))
+                (marshall (insert a t)).
+Proof.
+  intros. remember (tree_size t) as n.
+  assert ((tree_size t) <= n). rewrite Heqn. constructor.
+  clear Heqn. generalize dependent t. induction n; intros.
+  destruct t. auto.
+  inversion H.
+
+  destruct t. auto. simpl. destruct (a <? n0). simpl.
+  assert (Permutation (a :: (marshall t1)) (marshall (insert a t1))).
+  apply IHn. simpl in H. apply le_S_n in H. apply le_plus_l_elim in H.
+  assumption. remember (n0 :: (marshall t2)) as l2.
+  apply Permutation_app_tail with (tl := l2) in H0.
+  simpl in H0. assumption.
+
+  simpl.
+  assert (Permutation (a :: marshall t2) (marshall (insert a t2))).
+  apply IHn. simpl in H. apply le_S_n in H.
+  rewrite plus_comm in H. apply le_plus_l_elim in H. assumption.
+  remember (n0 :: marshall (insert a t2)) as x.
+  remember (marshall t1) as y.
+  assert
+    (Permutation (a :: y ++ n0 :: (marshall t2)) (y ++ a :: n0 :: (marshall t2))).
+  apply Permutation_cons_app. auto.
+  apply Permutation_trans with (l' := (y ++ a :: n0 :: marshall t2)).
+  assumption. rewrite Heqx. rewrite Heqy. apply Permutation_app.
+  auto. assert (Permutation (a :: n0 :: marshall t2) (n0 :: a :: marshall t2)).
+  apply perm_swap. apply Permutation_trans with (l' := (n0 :: a :: marshall t2)).
+  assumption. constructor. assumption.
+Qed.
+
+
+
+
+Theorem treesort_permutation : forall l, Permutation l (treesort l).
+Proof.
+  intros. induction l. auto.
+  unfold treesort in *. simpl.
+  assert (Permutation (a :: marshall (insert_list l))
+                      (marshall (insert a (insert_list l)))).
+  apply insert_permutation.
+  apply Permutation_trans with (l' := (a :: marshall (insert_list l))).
+  constructor. assumption. assumption.
+Qed.
+  
