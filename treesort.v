@@ -6,6 +6,7 @@ Require Import Arith.
 Require Import Coq.Sorting.Sorted.
 Require Import Coq.Sorting.Permutation.
 Require Import Coq.Program.Combinators.
+Require Import quicksort.
 Import WfExtensionality.
 
 Inductive bt :=
@@ -22,7 +23,7 @@ Inductive in_bt : nat -> bt -> Prop :=
 Inductive bst : bt -> Prop :=
 | BSTLeaf : bst Leaf
 | BSTNode : forall n1 tl tr, (forall n2, in_bt n2 tl -> n2 < n1)
-                        -> (forall n2, in_bt n2 tl -> n2 >= n1)
+                        -> (forall n2, in_bt n2 tr -> n2 >= n1)
                         -> bst tl
                         -> bst tr
                         -> bst (Node n1 tl tr).
@@ -31,8 +32,8 @@ Fixpoint insert n1 t :=
   match t with
   | Leaf => Node n1 Leaf Leaf
   | Node n2 tl tr => if n1 <? n2
-                       then Node n2 (insert n1 tl) tr
-                       else Node n2 tl (insert n1 tr)
+                    then Node n2 (insert n1 tl) tr
+                    else Node n2 tl (insert n1 tr)
   end.
 
 
@@ -75,10 +76,76 @@ Proof.
   right. assumption.
 Qed.
 
-  
 Theorem insert_bst : forall t n, bst t -> bst (insert n t).
 Proof.
   intros. induction H.
   compute. constructor; intros; try inversion H; try constructor.
   simpl. destruct (n <? n1) eqn:res.
-  constructor. inversion H1. subst. intros. 
+  constructor. intros. apply insert_inversion in H3. destruct H3.
+  apply H. assumption. rewrite <- H3 in res. apply Nat.ltb_lt in res.
+  assumption. intros. apply H0. assumption. assumption. assumption.
+
+  constructor. assumption. intros. apply insert_inversion in H3.
+  destruct H3. apply H0. assumption. rewrite H3. apply Nat.ltb_nlt in res.
+  apply not_gt in res. assumption. assumption. assumption.
+Qed.
+
+Definition insert_list l := List.fold_right insert Leaf l.
+
+Lemma insert_list_bst : forall l, bst (insert_list l).
+Proof.
+  intros. induction l. compute. constructor.
+  unfold insert_list in *. simpl. apply insert_bst. assumption.
+Qed.
+
+Fixpoint marshall t :=
+  match t with
+  | Leaf => []
+  | Node a tl tr =>  (marshall tl) ++ (a :: (marshall tr))
+  end.
+  
+Theorem in_marshall : forall x t, in_bt x t <-> In x (marshall t).
+Proof.
+  intros. split; intros.
+  induction t. inversion H.
+  simpl. apply in_app_iff. inversion H.
+  subst. right. constructor. reflexivity.
+  subst. left. apply IHt1. assumption.
+  subst. right. apply in_cons. apply IHt2. assumption.
+
+  induction t. inversion H. simpl in H. apply in_app_iff in H.
+  destruct H. apply Lefttree. apply IHt1. assumption.
+  simpl in H. destruct H. subst. constructor. reflexivity.
+  apply Righttree. apply IHt2. assumption.
+Qed.
+  
+Lemma lt_gt : forall n1 n2, n1 <= n2 <-> n2 >= n1.
+Proof.
+  intros. split;
+  auto with arith.
+Qed.
+  
+
+Theorem marshall_sorted : forall t, bst t -> LocallySorted le (marshall t).
+Proof.
+  intros. induction t. compute. constructor.
+  simpl. inversion H. subst.
+  assert (LocallySorted le (marshall t1)).
+  apply IHt1. assumption.
+  assert (LocallySorted le (marshall t2)).
+  apply IHt2. assumption. 
+  apply app_lt_sorted. assumption. assumption.
+  intros. assert (a < n). apply H3. apply in_marshall.
+  assumption. auto with arith.
+  intros. apply lt_gt. apply H4. apply in_marshall. assumption.
+Qed.
+
+Definition treesort l :=
+  marshall (insert_list l).
+
+Theorem treesort_sorted : forall l, LocallySorted le (treesort l).
+Proof.
+  intros. unfold treesort. apply marshall_sorted.
+  apply insert_list_bst.
+Qed.
+
